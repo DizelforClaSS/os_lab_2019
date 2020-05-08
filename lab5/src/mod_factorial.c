@@ -14,9 +14,8 @@ int begin;
 int end;
 
 };
-void factorial(void *args );
-void module(void *args );
 
+void factorial(void *args );
 long int res=1; //Результат начинаем всегда с 1 так как удобней будет умножать
 int mod=-1; //модуль
 int tnum=-1; //количество потоков
@@ -94,40 +93,22 @@ int current_optind = optind ? optind : 1;
 
 struct Segment seg[tnum];
 
-
-if(tnum==1){
-seg[0].begin=1;
-seg[0].end=k;
-factorial((void *)&seg[0]);
-module((void *)&seg[0]);
-printf("The factorial %d modulo %d is equal %ld \n", k, mod, res);
-return 0;
+ int beginf=0; int endf=0;//Отрезки для потоков вычисляющих факториаль
+ 
+ int step_factorial=0;
+if( k>tnum){
+step_factorial=(k/tnum);
+}else{
+ step_factorial=1;
+ tnum=k;
 }
-
- int beginf=0; int endf=0;//Отрезки для потоков вычисляющих факториал
- int beginm=0; int endm=0;//Отрезки для потоков вычисляющих модуль
- 
- int step_factorial, step_module;
- 
-  if(tnum>=2*k){
-     step_factorial=1;
-     step_module=1;
-     tnum=k;
-  }
-  else if((tnum % 2)==0){
-     step_factorial=k/(tnum/2);
-     step_module=step_factorial;
- }else{
-     step_factorial=k/((tnum+1)/2);
-     step_module=k/((tnum-1)/2);
- }
  
  pthread_t threads[tnum];
 
- for(int i=0; i<tnum; i=i+2){
+ for(int i=0; i<tnum; i++){
     beginf=endf+1;
-    endf=beginf+step_factorial;
-    if( (i+2)>=tnum)
+    endf=beginf+step_factorial-1;
+    if((i+1)==tnum)
       endf=k;
     seg[i].begin=beginf;
     seg[i].end=endf;
@@ -139,35 +120,11 @@ return 0;
 
  }
  
-for(int j=1; j<tnum; j=j+2){ 
-    beginm=endm+1;
-    endm=beginm+step_module;
-    if( (j+2)>=tnum)
-      endm=k;
-    seg[j].begin=beginm;
-    seg[j].end=endm;
-    if (pthread_create(&threads[j], NULL, module,(void *)&seg[j]))
-{      printf("Error: pthread_create failed!\n");
-      return 1;
-    }
 
-}
-
-for (int i = 0; i < tnum-2; i+=2) {
-    pthread_join(threads[i],NULL);
-  }
-for (int i = 1; i < tnum; i+=2) {
+for (int i = 0; i < tnum; i+=1) {
     pthread_join(threads[i],NULL);
   }
 
-
-
- 
- if((tnum % 2)==0){
-     module((void*)&seg[tnum-1]);
- }else{
-    module((void*)&seg[tnum-2]);
- } //Запускается в самую последнюю очередь, после выполнения всех факториалов.
 printf("The factorial %d modulo %d is equal %ld \n", k, mod, res);
 return 0;
 
@@ -179,18 +136,9 @@ pthread_mutex_lock(&mut);
 for(int i=s->begin; i<=s->end; i++){
 res=res*i;
 
-}
-pthread_mutex_unlock(&mut);
-
-}
-void module(void* args){
-struct Segment *s = (struct Segment *)args;
-pthread_mutex_lock(&mut);
-for(int i=s->begin; i<=s->end; i++){
-
 res=res%mod;
-
 }
-
 pthread_mutex_unlock(&mut);
+
 }
+
