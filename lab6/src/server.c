@@ -13,30 +13,26 @@
 
 #include "pthread.h"
 
+pthread_mutex_t mut = PTHREAD_MUTEX_INITIALIZER;
 struct FactorialArgs {
   uint64_t begin;
   uint64_t end;
   uint64_t mod;
 };
 
-uint64_t MultModulo(uint64_t a, uint64_t b, uint64_t mod) {
-  uint64_t result = 0;
-  a = a % mod;
-  while (b > 0) {
-    if (b % 2 == 1)
-      result = (result + a) % mod;
-    a = (a * 2) % mod;
-    b /= 2;
-  }
 
-  return result % mod;
-}
 
 uint64_t Factorial(const struct FactorialArgs *args) {
   uint64_t ans = 1;
 
   // TODO: your code here
-
+   struct FactorialArgs *s = (struct FactorialArgs *)args;
+   pthread_mutex_lock(&mut);
+   for(int i=s->begin; i<=s->end; i++){
+   ans=ans*i;
+   ans=ans%(s->mod);
+}
+   pthread_mutex_unlock(&mut);
   return ans;
 }
 
@@ -68,9 +64,17 @@ int main(int argc, char **argv) {
       case 0:
         port = atoi(optarg);
         // TODO: your code here
+	if(port<1){
+		  printf("port can't be negative\n");	
+		   return -1;
+		}
         break;
       case 1:
         tnum = atoi(optarg);
+	if(tnum<1){
+		  printf("amount of threads can't be negative\n");	
+		   return -1;
+		}
         // TODO: your code here
         break;
       default:
@@ -91,7 +95,7 @@ int main(int argc, char **argv) {
     return 1;
   }
 
-  int server_fd = socket(AF_INET, SOCK_STREAM, 0);
+  int server_fd = socket(AF_INET, SOCK_STREAM, 0); //Используем домен  AF_INET, сокет типа SOCK_STREAM, с протоколом TCP 
   if (server_fd < 0) {
     fprintf(stderr, "Can not create server socket!");
     return 1;
@@ -156,13 +160,28 @@ int main(int argc, char **argv) {
 
       fprintf(stdout, "Receive: %llu %llu %llu\n", begin, end, mod);
 
+int step_factorial=0;
+int k=end-begin+1;
+if( k>tnum){
+step_factorial=(k/tnum)-1;
+}else{
+ step_factorial=0;
+ tnum=k;
+}
+
+int beginf=begin, endf=begin-1;
       struct FactorialArgs args[tnum];
       for (uint32_t i = 0; i < tnum; i++) {
         // TODO: parallel somehow
-        args[i].begin = 1;
-        args[i].end = 1;
+       
+	
+    beginf=endf+1;
+    endf=beginf+step_factorial;
+    if((i+1)==tnum)
+      endf=end;
+        args[i].begin = beginf;
+        args[i].end = endf;
         args[i].mod = mod;
-
         if (pthread_create(&threads[i], NULL, ThreadFactorial,
                            (void *)&args[i])) {
           printf("Error: pthread_create failed!\n");
@@ -172,7 +191,7 @@ int main(int argc, char **argv) {
 
       uint64_t total = 1;
       for (uint32_t i = 0; i < tnum; i++) {
-        uint64_t result = 0;
+        uint64_t result = 1;
         pthread_join(threads[i], (void **)&result);
         total = MultModulo(total, result, mod);
       }
